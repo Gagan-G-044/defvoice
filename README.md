@@ -102,7 +102,7 @@ stateDiagram-v2
 
 ### Option A: Pre-Built Release APK (Quickest)
 
-- Download the compiled production binary: [app-release.apk](https://github.com/Gagan-G-044/defvoice/releases) (~82.9 MB).
+- Download the compiled production binary: [app-release.apk](https://github.com/Gagan-G-044/defvoice/releases/download/v1.0.0/app-release.apk) (~82.9 MB).
 - Compatible with Android 6.0+ (API level 23+).
 - Sideload onto two physical Android devices using USB transfer or ADB:
 
