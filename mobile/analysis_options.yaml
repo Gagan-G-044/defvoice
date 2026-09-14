@@ -1,0 +1,18 @@
+include: package:flutter_lints/flutter.yaml
+
+linter:
+  rules:
+    # The demo UI is full of long explanatory strings; wrapping them to satisfy
+    # a line-length rule makes them harder to read, not easier.
+    lines_longer_than_80_chars: false
+    prefer_const_constructors: true
+    avoid_print: true
+
+analyzer:
+  errors:
+    # Deprecations are warnings, not build failures. `withOpacity` is used
+    # deliberately for compatibility with older Flutter versions.
+    deprecated_member_use: info
+  exclude:
+    - build/**
+    - android/**

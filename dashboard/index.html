@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<!--
+  DefVoice judge dashboard. Served by the backend at http://<laptop>:8000/
+
+  No CDN, no build step, no framework, no dependencies. The timeline is drawn on
+  a raw canvas rather than with Chart.js on purpose: exhibition venues routinely
+  have Wi-Fi with no working internet route, and a dashboard that renders a blank
+  box because cdnjs is unreachable is worse than no dashboard.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DefVoice — live call analysis</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #09090b;
+    --panel: #18181b;
+    --line: #27272a;
+    --text: #fafafa;
+    --muted: #a1a1aa;
+    --safe: #16a34a;
+    --caution: #f59e0b;
+    --suspicious: #ea580c;
+    --critical: #dc2626;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  header {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    padding: 14px 22px; border-bottom: 1px solid var(--line);
+  }
+  header h1 { font-size: 16px; margin: 0; font-weight: 650; letter-spacing: .2px; }
+  header .tag { font-size: 11px; color: var(--muted); }
+  header .spacer { flex: 1; }
+  input {
+    background: #0f0f11; border: 1px solid var(--line); color: var(--text);
+    border-radius: 6px; padding: 6px 9px; font: inherit; font-size: 13px;
+  }
+  input:focus { outline: 1px solid #6366f1; }
+  button {
+    background: #6366f1; border: 0; color: #fff; border-radius: 6px;
+    padding: 7px 14px; font: inherit; font-weight: 600; cursor: pointer;
+  }
+  button.ghost { background: transparent; border: 1px solid var(--line); }
+  button:disabled { opacity: .5; cursor: default; }
+  .pill {
+    font-size: 11px; font-weight: 700; letter-spacing: .6px;
+    padding: 4px 10px; border-radius: 999px; border: 1px solid currentColor;
+  }
+  main { padding: 22px; display: grid; gap: 18px; grid-template-columns: 340px 1fr; }
+  @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+  .panel {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; padding: 18px;
+  }
+  .panel h2 {
+    font-size: 12px; text-transform: uppercase; letter-spacing: .8px;
+    color: var(--muted); margin: 0 0 12px; font-weight: 650;
+  }
+  .gauge-wrap { display: flex; flex-direction: column; align-items: center; }
+  .gauge-num { font-size: 52px; font-weight: 700; line-height: 1; }
+  .gauge-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .banner {
+    padding: 11px 14px; border-radius: 8px; font-size: 12.5px;
+    border: 1px solid; margin: 0 22px 0; display: none;
+  }
+  .banner.show { display: block; }
+  .banner.warn { color: var(--caution); background: rgba(245,158,11,.12); }
+  .banner.alarm { color: var(--critical); background: rgba(220,38,38,.12); }
+  .banner.clone {
+    color: var(--critical); background: rgba(220,38,38,.15);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .banner.clone .clone-icon {
+    font-size: 22px; flex-shrink: 0;
+  }
+  .banner.clone .clone-title {
+    font-weight: 700; font-size: 13px; letter-spacing: .4px;
+  }
+  .banner.clone .clone-sub {
+    font-size: 11.5px; color: #fca5a5; margin-top: 2px;
+  }
+  .bar { margin-bottom: 11px; }
+  .bar .row { display: flex; justify-content: space-between; font-size: 12.5px; }
+  .bar .track {
+    height: 6px; background: var(--line); border-radius: 3px;
+    margin-top: 5px; overflow: hidden;
+  }
+  .bar .fill { height: 100%; border-radius: 3px; transition: width .3s ease; }
+  ul.reasons { margin: 0; padding-left: 18px; }
+  ul.reasons li { margin-bottom: 5px; font-size: 13px; }
+  .transcript {
+    background: #0f0f11; border: 1px solid var(--line); border-radius: 8px;
+    padding: 11px; font-size: 13px; min-height: 44px; color: #e4e4e7;
+  }
+  .meta { font-size: 11px; color: #71717a; margin-top: 12px; }
+  canvas { width: 100%; height: 190px; display: block; }
+  .legend { display: flex; gap: 16px; font-size: 11px; color: var(--muted); margin-top: 8px; }
+  .swatch { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; }
+  footer {
+    padding: 0 22px 26px; font-size: 11.5px; color: #71717a;
+    max-width: 900px; line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>DefVoice</h1>
+  <span class="tag">SIH26104 · live call analysis</span>
+  <div class="spacer"></div>
+  <input id="session" value="call_001" size="10" title="Session ID" />
+  <input id="token" value="sih26104-change-me" size="18" title="Token" />
+  <button id="connect">Connect</button>
+  <button id="clear" class="ghost">Clear</button>
+  <span id="status" class="pill" style="color:var(--muted)">IDLE</span>
+</header>
+
+<div id="degraded" class="banner warn">
+  DEGRADED — the backend is running the stub countermeasure. These scores come
+  from a placeholder heuristic, not a trained detector.
+</div>
+<div id="stepup" class="banner alarm" style="margin-top:12px">
+  STEP-UP RECOMMENDED — verify this caller out of band before acting on anything
+  said on this call.
+</div>
+<div id="clone-banner" class="banner clone" style="margin-top:12px;display:none">
+  <span class="clone-icon">🎙️</span>
+  <div>
+    <div class="clone-title">AI VOICE CLONE DETECTED</div>
+    <div class="clone-sub" id="clone-sub"></div>
+  </div>
+</div>
+
+<main>
+  <section class="panel gauge-wrap">
+    <h2 style="align-self:flex-start">Authenticity</h2>
+    <svg width="230" height="230" viewBox="0 0 230 230">
+      <circle cx="115" cy="115" r="98" fill="none" stroke="#27272a"
+              stroke-width="17" stroke-linecap="round"
+              stroke-dasharray="461.8 615.8" transform="rotate(135 115 115)" />
+      <circle id="arc" cx="115" cy="115" r="98" fill="none" stroke="#16a34a"
+              stroke-width="17" stroke-linecap="round"
+              stroke-dasharray="461.8 615.8" transform="rotate(135 115 115)"
+              style="transition:stroke-dasharray .35s ease,stroke .35s ease" />
+      <text id="num" x="115" y="112" text-anchor="middle"
+            class="gauge-num" fill="#16a34a"
+            style="font-size:52px;font-weight:700">100</text>
+      <text x="115" y="134" text-anchor="middle" fill="#a1a1aa"
+            style="font-size:12px">% authentic</text>
+      <text id="level" x="115" y="162" text-anchor="middle" fill="#16a34a"
+            style="font-size:13px;font-weight:700;letter-spacing:1px">SAFE</text>
+    </svg>
+    <div class="meta" id="meta"></div>
+  </section>
+
+  <div style="display:grid;gap:18px">
+    <section class="panel">
+      <h2>Risk over time</h2>
+      <canvas id="chart"></canvas>
+      <div class="legend">
+        <span><i class="swatch" style="background:#6366f1"></i>smoothed risk</span>
+        <span><i class="swatch" style="background:#52525b"></i>raw p(synthetic)</span>
+        <span><i class="swatch" style="background:var(--suspicious)"></i>step-up threshold (55)</span>
+        <span><i class="swatch" style="background:var(--critical)"></i>critical (75)</span>
+      </div>
+    </section>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+      <section class="panel">
+        <h2>Signals</h2>
+        <div id="bars"></div>
+      </section>
+      <section class="panel">
+        <h2>Reasons</h2>
+        <ul class="reasons" id="reasons"><li style="color:var(--muted)">waiting…</li></ul>
+      </section>
+    </div>
+
+    <section class="panel">
+      <h2>Transcript (context only — never decides the verdict)</h2>
+      <div class="transcript" id="transcript"></div>
+    </section>
+  </div>
+</main>
+
+<footer>
+  Detection runs on calls placed inside the DefVoice app. It does not intercept
+  cellular, WhatsApp, or native dialer audio — Android has not permitted that
+  since API 29, and no permission set changes it. Thresholds shown here are
+  tuned for a demo, not calibrated against a held-out attack corpus; treat the
+  numbers as indicative and read the equal-error rate off the evaluation report
+  before quoting accuracy.
+</footer>
+
+<script>
+"use strict";
+
+const COLORS = {
+  SAFE: "#16a34a", CAUTION: "#f59e0b",
+  SUSPICIOUS: "#ea580c", CRITICAL: "#dc2626",
+};
+const LABELS = {
+  cm: "Synthetic-speech model",
+  asv: "Speaker mismatch",
+  context: "Urgency / payment language",
+  is_ai_clone: "AI Clone Detected",
+  clone_confidence_pct: "Clone confidence %",
+};
+const CIRC = 615.8;            // 2*pi*98
+const ARC_FRACTION = 0.75;     // 270-degree dial
+const WINDOW_SEC = 90;         // visible series
+
+const $ = (id) => document.getElementById(id);
+let ws = null, series = [], t0 = 0, keepAlive = null;
+
+// ---------------------------------------------------------------- connection
+function setStatus(text, color) {
+  const el = $("status");
+  el.textContent = text;
+  el.style.color = color;
+}
+
+function connect() {
+  disconnect();
+  const sid = encodeURIComponent($("session").value.trim());
+  const tok = encodeURIComponent($("token").value.trim());
+  const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  const url = `${wsProtocol}//${window.location.host}/ws/telemetry/${sid}?token=${tok}`;
+  setStatus("CONNECTING", "var(--caution)");
+  try {
+    ws = new WebSocket(url);
+  } catch (e) {
+    setStatus("BAD URL", "var(--critical)");
+    return;
+  }
+  ws.onopen = () => setStatus("LIVE", "var(--safe)");
+  ws.onclose = (e) => {
+    // 4403 is the backend's "bad token" close code. Worth distinguishing,
+    // because a wrong token and an unreachable host look identical otherwise.
+    setStatus(e.code === 4403 ? "BAD TOKEN" : "CLOSED",
+              e.code === 4403 ? "var(--critical)" : "var(--muted)");
+  };
+  ws.onerror = () => setStatus("ERROR", "var(--critical)");
+  ws.onmessage = (ev) => {
+    let m;
+    try { m = JSON.parse(ev.data); } catch (_) { return; }
+    if (m.degraded === true) $("degraded").classList.add("show");
+    if (m.type === "risk") onRisk(m);
+  };
+  // Keepalive: the backend blocks on receive_text, so idle sockets can be
+  // reaped by intermediaries. Cheap insurance.
+  clearInterval(keepAlive);
+  keepAlive = setInterval(() => {
+    if (ws && ws.readyState === 1) ws.send("ping");
+  }, 10000);
+}
+
+function disconnect() {
+  clearInterval(keepAlive);
+  keepAlive = null;
+  if (ws) { try { ws.close(); } catch (_) {} ws = null; }
+}
+
+// ------------------------------------------------------------------- updates
+function onRisk(m) {
+  const now = performance.now() / 1000;
+  if (!t0) t0 = now;
+  series.push({
+    t: now - t0,
+    risk: num(m.risk),
+    p: m.p_synthetic == null ? null : num(m.p_synthetic) * 100,
+  });
+  while (series.length && series[0].t < (now - t0) - WINDOW_SEC) series.shift();
+
+  const level = (m.level || "SAFE").toUpperCase();
+  const color = COLORS[level] || COLORS.SAFE;
+  const auth = m.authenticity_pct == null ? 100 - num(m.risk) : num(m.authenticity_pct);
+  const frac = Math.max(0, Math.min(100, auth)) / 100;
+
+  $("arc").setAttribute("stroke-dasharray", `${CIRC * ARC_FRACTION * frac} ${CIRC}`);
+  $("arc").setAttribute("stroke", color);
+  $("num").textContent = Math.round(auth);
+  $("num").setAttribute("fill", color);
+  $("level").textContent = level;
+  $("level").setAttribute("fill", color);
+
+  $("stepup").classList.toggle("show", m.step_up_required === true);
+
+  // --- AI clone banner ---
+  const isClone = m.is_ai_clone === true;
+  const clonePct = typeof m.clone_confidence_pct === "number" ? m.clone_confidence_pct : 0;
+  const cloneBanner = $("clone-banner");
+  cloneBanner.style.display = isClone ? "flex" : "none";
+  if (isClone) {
+    $("clone-sub").textContent =
+      `${clonePct}% confidence · Neural synthesis artifacts found`;
+  }
+
+  renderBars(m.components || {}, color);
+  renderReasons(m.reasons || []);
+  if (typeof m.transcript === "string" && m.transcript.length) {
+    $("transcript").textContent = m.transcript;
+  }
+
+  const bits = [];
+  if (m.p_synthetic != null) bits.push(`raw p(synthetic) ${num(m.p_synthetic).toFixed(2)}`);
+  if (m.inference_ms != null) bits.push(`inference ${Math.round(num(m.inference_ms))} ms`);
+  if (m.dropped_windows) bits.push(`dropped ${m.dropped_windows}`);
+  $("meta").textContent = bits.join("   ·   ");
+
+  draw();
+}
+
+function num(v) { const n = Number(v); return Number.isFinite(n) ? n : 0; }
+
+function renderBars(components, color) {
+  const keys = Object.keys(components);
+  if (!keys.length) return;
+  $("bars").innerHTML = keys.map((k) => {
+    const v = Math.max(0, Math.min(100, num(components[k])));
+    return `<div class="bar">
+      <div class="row"><span>${escapeHtml(LABELS[k] || k)}</span>
+      <span style="color:var(--muted)">${v.toFixed(0)}</span></div>
+      <div class="track"><div class="fill"
+        style="width:${v}%;background:${color}"></div></div></div>`;
+  }).join("");
+}
+
+function renderReasons(reasons) {
+  if (!reasons.length) return;
+  $("reasons").innerHTML = reasons
+    .map((r) => `<li>${escapeHtml(String(r))}</li>`).join("");
+}
+
+// Telemetry text originates from ASR output, i.e. from audio an attacker
+// controls. Escape it rather than trusting it.
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[c]));
+}
+
+// --------------------------------------------------------------------- chart
+function draw() {
+  const cv = $("chart");
+  const dpr = window.devicePixelRatio || 1;
+  const w = cv.clientWidth, h = cv.clientHeight;
+  if (cv.width !== w * dpr || cv.height !== h * dpr) {
+    cv.width = w * dpr; cv.height = h * dpr;
+  }
+  const g = cv.getContext("2d");
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, w, h);
+
+  const pad = { l: 30, r: 8, t: 8, b: 18 };
+  const x = (t) => pad.l + (t / WINDOW_SEC) * (w - pad.l - pad.r);
+  const y = (v) => pad.t + (1 - v / 100) * (h - pad.t - pad.b);
+
+  // Threshold lines are the state machine's actual boundaries. Drawing them
+  // means the trace can be read against the verdict instead of on faith.
+  for (const [v, c] of [[30, "#3f3f46"], [55, "#ea580c"], [75, "#dc2626"]]) {
+    g.strokeStyle = c; g.lineWidth = 1; g.setLineDash([4, 4]);
+    g.beginPath(); g.moveTo(pad.l, y(v)); g.lineTo(w - pad.r, y(v)); g.stroke();
+    g.setLineDash([]);
+    g.fillStyle = c; g.font = "10px ui-sans-serif, sans-serif";
+    g.fillText(String(v), 6, y(v) + 3);
+  }
+
+  if (series.length < 2) return;
+
+  // Newest sample pinned to the right edge; anything older than WINDOW_SEC has
+  // already been shifted out of `series`.
+  const tNow = series[series.length - 1].t;
+  const xt = (t) => x(WINDOW_SEC - (tNow - t));
+
+  // Raw per-window CM output, drawn thin. It is deliberately noisy; the point
+  // of showing it is that the smoothed line visibly lags it.
+  g.strokeStyle = "#52525b"; g.lineWidth = 1; g.beginPath();
+  let started = false;
+  for (const pt of series) {
+    if (pt.p == null) { started = false; continue; }
+    const px = xt(pt.t), py = y(pt.p);
+    started ? g.lineTo(px, py) : g.moveTo(px, py);
+    started = true;
+  }
+  g.stroke();
+
+  g.strokeStyle = "#6366f1"; g.lineWidth = 2; g.beginPath();
+  series.forEach((pt, i) => {
+    const px = xt(pt.t), py = y(pt.risk);
+    i ? g.lineTo(px, py) : g.moveTo(px, py);
+  });
+  g.stroke();
+}
+
+// ---------------------------------------------------------------------- wire
+$("connect").onclick = connect;
+$("clear").onclick = () => {
+  series = []; t0 = 0;
+  $("stepup").classList.remove("show");
+  $("clone-banner").style.display = "none";
+  $("reasons").innerHTML = '<li style="color:var(--muted)">waiting…</li>';
+  $("transcript").textContent = "";
+  $("bars").innerHTML = "";
+  $("meta").textContent = "";
+  draw();
+};
+window.addEventListener("resize", draw);
+draw();
+
+// Autoconnect with the defaults so the page is useful the moment it opens. If
+// the token was changed, the pill says BAD TOKEN rather than failing silently.
+connect();
+</script>
+</body>
+</html>

@@ -1,0 +1,103 @@
+# ==============================================================================
+# Production .gitignore for DefVoice (SIH26104)
+# ==============================================================================
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+*.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Large Model Checkpoints (>50MB GitHub limits)
+*.pt
+*.pth
+*.bin
+*.onnx
+*.safetensors
+*.npy
+*.ckpt
+*.zip
+defvoice_ml.zip
+backend/models/*
+!backend/models/.gitkeep
+models/*
+!models/.gitkeep
+
+# Audio Dumps & Recorded Calls
+*.wav
+*.mp3
+*.aac
+*.opus
+*.flac
+*.ogg
+*.amr
+*.m4a
+!mobile/assets/clones/README.txt
+!mobile/assets/clones/*.wav
+!backend/tests/fixtures/*.wav
+data/
+PROVENANCE.json
+
+# Cached SSL Features
+**/feat/
+**/index.json
+
+# Flutter & Mobile Build Artifacts
+build/
+**/build/
+mobile/build/
+mobile/android/build/
+mobile/.dart_tool/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/android/.gradle/
+mobile/android/local.properties
+mobile/ios/
+mobile/linux/
+mobile/macos/
+mobile/windows/
+mobile/web/
+*.apk
+*.aab
+*.iml
+
+# Local Configuration & Secrets
+.env
+.env.*
+!.env.example
+*.token
+*.local
+
+# Temporary Scratch, Diagnostics, and Injection Scripts
+backend/diag_cm.py
+backend/tools/interactive_injector.py
+backend/tools/manual_meter_cli.py
+backend/tools/test_my_clone.py
+backend/tools/benchmark_3rdparty.py
+backend/my_voice_clone.wav
+backend/test_audio.wav
+backend/anchorsample_fixed.wav
+backend/generate_clones.py
+generate_clones.py
+generate_clones_gtts.py
+scratch/
+
+# IDE & OS Metadata
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
+Thumbs.db

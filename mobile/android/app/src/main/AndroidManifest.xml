@@ -1,0 +1,74 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Signaling, telemetry and RTP to the laptop. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- Capture the outgoing voice track. Runtime-requested in main.dart. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- Required to force the loudspeaker. Phone A depends on this: the clone is
+         played out of the speaker and re-captured by its own mic. -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+
+    <!-- flutter_webrtc's audio device module touches these on older devices. -->
+    <uses-permission android:name="android.permission.BLUETOOTH"
+        android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"
+        android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <uses-feature android:name="android.hardware.microphone" android:required="true" />
+
+    <!-- WHAT THIS APP DOES NOT ASK FOR, DELIBERATELY
+         No READ_PHONE_STATE, no CALL_LOG, no ACCESSIBILITY service, no
+         CAPTURE_AUDIO_OUTPUT. Since Android 10 a third-party app cannot capture
+         the audio of a cellular call or of another app such as WhatsApp;
+         AudioPlaybackCapture excludes voice-call streams and any app that has
+         not opted in. Detection here operates on calls placed inside this app.
+         If a judge asks whether this taps the native dialer, the answer is no,
+         and no permission set would change that. -->
+
+    <application
+        android:label="DefVoice"
+        android:name="${applicationName}"
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true">
+        <!-- usesCleartextTraffic: ws:// and http:// to a LAN IP. Android 9+
+             blocks cleartext by default, and without this the phone fails to
+             reach the laptop with an error that looks like a network problem.
+             Acceptable only because this is an isolated demo network. A real
+             deployment terminates WSS at the edge. -->
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
+            <meta-data
+                android:name="io.flutter.embedding.android.NormalTheme"
+                android:resource="@style/NormalTheme" />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+    </application>
+
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.PROCESS_TEXT" />
+            <data android:mimeType="text/plain" />
+        </intent>
+    </queries>
+</manifest>

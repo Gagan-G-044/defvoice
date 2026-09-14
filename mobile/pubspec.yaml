@@ -1,0 +1,33 @@
+name: defvoice
+description: SIH26104 -- real-time voice clone detection for in-app VoIP calls.
+publish_to: "none"
+version: 0.1.0
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # WebRTC peer connection to the laptop middlebox.
+  flutter_webrtc: ^1.6.2+hotfix.1
+
+  # Signaling + telemetry channels.
+  web_socket_channel: ^3.0.1
+
+  # Phone A only: plays cloned clips out of the loudspeaker so its own mic picks
+  # them up. There is no custom-audio-source API on Android, so acoustic
+  # re-capture is the only way to inject a file into an outgoing WebRTC track.
+  audioplayers: ^6.1.0
+
+  permission_handler: ^11.3.1
+
+dev_dependencies:
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    # Drop your generated clone clips here. Keep them out of git.
+    - assets/clones/

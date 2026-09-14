@@ -1,0 +1,11 @@
+# Model weights land here. Nothing in this directory is committed -- see .gitignore.
+#
+# Expected contents once you have trained:
+#   cm_head.pt          <- ml/train_cm_head.py  (torch backend)
+#   cm_xlsr_head.onnx   <- optional ONNX export  (faster, preferred for demo)
+#   silero_vad.onnx     <- Silero VAD v4/v5 export
+#   anchor_exec.npy     <- backend/tools/enroll.py
+#
+# With none of these present every engine falls back to a stub and the backend
+# reports degraded: true in every telemetry frame. Set DEFVOICE_ALLOW_STUB=0 to
+# make that a startup failure instead.

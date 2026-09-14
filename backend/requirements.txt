@@ -1,0 +1,30 @@
+# Core runtime -- this is all you need to boot the middlebox in stub mode.
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+aiortc==1.9.0
+av==12.3.0
+numpy==1.26.4
+websockets==13.1
+
+# VAD + exported CM. onnxruntime-gpu instead if you want CUDA for the CM graph.
+onnxruntime==1.19.2
+
+# Speaker verification. Torch pinned to a cu121 wheel-compatible version; install
+# torch first from the PyTorch index if pip resolves a CPU-only build:
+#   pip install torch==2.4.1 torchaudio==2.4.1 --index-url https://download.pytorch.org/whl/cu121
+torch==2.4.1
+torchaudio==2.4.1
+speechbrain==1.0.2
+
+# Frozen SSL front-end for the CM torch backend.
+transformers==4.44.2
+
+# Contextual keyword spotting. CTranslate2 based -- NOT ONNX.
+faster-whisper==1.0.3
+
+# Enrollment / tooling
+soundfile==0.12.1
+scipy==1.14.1
+
+# Tests
+pytest==8.3.3
