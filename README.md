@@ -102,7 +102,7 @@ stateDiagram-v2
 
 ### Option A: Pre-Built Release APK (Quickest)
 
-- Download the compiled production binary: `app-release.apk` (~82.9 MB).
+- Download the compiled production binary: [app-release.apk](https://github.com/Gagan-G-044/defvoice/releases) (~82.9 MB).
 - Compatible with Android 6.0+ (API level 23+).
 - Sideload onto two physical Android devices using USB transfer or ADB:
 
@@ -130,7 +130,7 @@ Open the app on both handsets and configure the connection parameters:
 | Server Address | Host laptop's Wi-Fi IP address | `192.168.x.x` (or `10.0.2.2` if Android Emulator) |
 | Port | Backend listening port | `8000` |
 | Session ID | Shared room identifier for both callers | `call_001` |
-| Security Token | Auth token matching `DEFVOICE_TOKEN` | `sih26104-change-me` |
+| Security Token | Auth token matching `DEFVOICE_TOKEN` | `demo-secret-token-123` |
 
 > **Setup Order:** Tap **Check Backend** on both phones before placing calls. Always open Phone B (Receiver) first so the WebSocket telemetry channel is initialized before Phone A (Caller) dials.
 
@@ -180,7 +180,7 @@ Copy the environment template and start the service:
 
 ```bash
 cp ../.env.example .env
-set DEFVOICE_TOKEN=sih26104-change-me
+set DEFVOICE_TOKEN=demo-secret-token-123
 python -m app.main
 ```
 
